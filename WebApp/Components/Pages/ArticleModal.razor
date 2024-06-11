@@ -1,0 +1,23 @@
+﻿@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public string Content { get; set; }
+
+    private void Close()
+    {
+        if (OnClose.HasDelegate)
+        {
+            OnClose.InvokeAsync(null);
+        }
+    }
+}
+
+@if (IsOpen)
+{
+    <div class="modal-overlay" @onclick="Close">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <button class="modal-close" @onclick="Close">X</button>
+            <div>@(new MarkupString(Content))</div>
+        </div>
+    </div>
+}

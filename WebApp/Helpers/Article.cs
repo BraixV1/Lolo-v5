@@ -54,6 +54,8 @@ public class Article
 
     [XmlElement("link")] 
     public string LinkToArticle { get; set; } = default!;
+
+    [XmlIgnore] public string Color { get; set; } = default!;
 }
 
 [XmlRoot("rss")]

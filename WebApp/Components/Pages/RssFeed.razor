@@ -1,0 +1,188 @@
+﻿@page "/RssFeed"
+@rendermode InteractiveServer
+@using System.Text
+@using System.Text.Json
+@using WebApp.Helpers
+@inject LocalStorageService LocalStorage
+
+<PageTitle>RssFeed</PageTitle>
+
+<input type="text" @bind="_searchTerm" @bind:event="oninput" placeholder="Search articles..." />
+
+<button class="" @onclick="ToggleDropdown">
+    Select Categories
+</button>
+@if (_isOpen)
+{
+    <div class="dropdown-menu @(_isOpen ? "show" : "")">
+        @if (_categoryFilters.Keys.Count != 0)
+        {
+            foreach (var category in _categoryFilters)
+            {
+                var categorySaved = category.Key;
+                <div class="dropdown-item">
+                    <input type="checkbox" checked="@_categoryFilters[categorySaved]" @onchange="e => OnCategoryChanged(categorySaved, e)" />
+                    <label>@categorySaved</label>
+                </div>
+            }
+        }
+    </div>
+}
+
+
+<div class="grid-articles">
+    @if (filteredArticles.Any())
+    {
+        foreach (var article in filteredArticles)
+        {
+            <button class="LinkButton" @onclick="() => OpenArticle(article.LinkToArticle)">
+                <div class="grid-articleCard" style="background-color: @article.Color">
+                    <div id="image"> <img src="@article.Media?.Url" alt="404"> </div>
+                    <div id="title" class="article-card-text small">
+                        <h1>@article.Title</h1></div>
+                    <div id="description" class="article-card-text smaller justify">
+                        <p>@article.Description</p></div>
+                    <div id="bottom-row" class="article-card-text small">
+                        <div id="author">Author: @article.Author</div>
+                        <div id="pub-date">Published: @article.pubDate</div>
+                    </div>
+                </div>
+            </button>
+        }
+    }
+</div>
+
+<ArticleModal IsOpen="_isModalOpen" Content="@_articleContent" OnClose="CloseModal" />
+
+@code {
+    private bool _isOpen = false;
+    private bool _isModalOpen = false;
+    
+    private List<string> _items = new List<string>();
+    private bool _isInitialized = false;
+    private string _searchTerm = string.Empty;
+    private ArticlesObj _articlesObj = new ArticlesObj { Articles = new List<Article>() };
+    private readonly Dictionary<string, bool> _categoryFilters = new Dictionary<string, bool>();
+    private string _articleContent = string.Empty;
+    
+    private IEnumerable<Article> filteredArticles => _articlesObj.Articles
+        .Where(article =>
+            (string.IsNullOrWhiteSpace(_searchTerm) ||
+             article.Title.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+             article.Description.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+             article.Author.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
+            && IsArticleInCategory(article));
+
+    private static void GenerateColor(ArticlesObj input)
+    {
+        Random rand = new Random();
+        var color = $"rgba({rand.Next(256)}, {rand.Next(256)}, {rand.Next(256)}, 0.3)";
+        input.Articles.ForEach(item => item.Color = color);
+    }
+    
+    private void ToggleDropdown()
+    {
+        _isOpen = !_isOpen;
+    }
+
+
+    private void OnCategoryChanged(string category, ChangeEventArgs e)
+    {
+        _categoryFilters[category] = bool.Parse(e.Value.ToString());
+        StateHasChanged();
+    }
+    
+    private void CloseModal()
+    {
+        _isModalOpen = false;
+        StateHasChanged();
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var storedItems = await LocalStorage.GetItem("items");
+            if (storedItems != null)
+            {
+                _items = JsonSerializer.Deserialize<List<string>>(storedItems);
+            }
+            else
+            {
+                _items.Add("https://flipboard.com/@raimoseero/feed-nii8kd0sz.rss");
+                await LocalStorage.AddLink("items", JsonSerializer.Serialize(_items));
+            }
+
+            _articlesObj = await GetXmlData(_items);
+            FillCategories();
+            StateHasChanged();
+        }
+
+    }
+
+    private async Task OpenArticle(string link)
+    {
+        try
+        {
+            using (HttpClient client = new HttpClient())
+            {
+                var APILink = "https://uptime-mercury-api.azurewebsites.net/webparser";
+                var response = await client.PostAsync(APILink, new StringContent(JsonSerializer.Serialize(new { url = link }), Encoding.UTF8, "application/json"));
+                response.EnsureSuccessStatusCode();
+
+                var content = await response.Content.ReadAsStringAsync();
+                _articleContent = JsonDocument.Parse(content).RootElement.GetProperty("content").GetString().Replace("\n", "");
+                _isModalOpen = true;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle exception
+            Console.WriteLine($"Error fetching article content: {ex.Message}");
+        }
+    }
+
+    private bool IsArticleInCategory(Article input)
+    {
+        var selectedCategories = _categoryFilters.Where(CategoryFilter => CategoryFilter.Value).Select(CategoryFilter => CategoryFilter.Key).ToList();
+        if (selectedCategories.Count == 0) return true;
+        return input.Categories.Any(category => selectedCategories.Contains(category));
+    }
+
+    private void FillCategories()
+    {
+        foreach (var article in _articlesObj.Articles)
+        {
+            article.Categories.ForEach(item => _categoryFilters.TryAdd(item, false));
+        }
+    }
+    
+    private static async Task<ArticlesObj> GetXmlData(List<string> items)
+    {
+        HttpClient client = new HttpClient();
+        var result = new ArticlesObj { Articles = new List<Article>() };
+
+        try
+        {
+            foreach (var url in items)
+            {
+                string xmlData = await client.GetStringAsync(url);
+                var articlesObj = XMLDeserializer.DeserializeXmlData<ArticlesObj>(xmlData);
+                if (articlesObj != null && articlesObj.Articles != null)
+                {
+                    GenerateColor(articlesObj);
+                    result.Articles = result.Articles.Concat(articlesObj.Articles).ToList();
+                }
+            }
+            result.Articles.Sort((article, article1) => article.pubDate.CompareTo(article1.pubDate));
+            result.Articles.Reverse();
+            return result;
+        }
+        catch (Exception ex)
+        {
+            // Log or handle the exception as needed
+            throw new Exception("Error fetching XML data", ex);
+        }
+    }
+}
