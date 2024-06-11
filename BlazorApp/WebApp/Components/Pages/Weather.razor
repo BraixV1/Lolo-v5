@@ -1,0 +1,64 @@
+﻿@page "/weather"
+@rendermode InteractiveServer
+@using System.Text.Json
+@using WebApp.Helpers
+@inject LocalStorageService LocalStorage
+
+<PageTitle>Weather</PageTitle>
+
+<NavLink href="AddNewLink">
+    Add new RSS link
+</NavLink>
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>Link</th>
+    </tr>
+    </thead>
+    <tbody>
+    @for(var i = 0; i < links.Count; i++)
+    {
+        var current = i;
+        <tr>
+            @links[i]
+            <button @onclick="() => {DeleteLink(current); }">Delete</button>
+            <button>Edit</button>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@code {
+    
+    
+    private List<string> links = new List<string>();
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var storedLinks = await LocalStorage.GetItem("items");
+        if (storedLinks != null)
+        {
+            links = JsonSerializer.Deserialize<List<string>>(storedLinks);
+        }
+        else
+        {
+            links.Add("https://flipboard.com/@raimoseero/feed-nii8kd0sz.rss");
+            await LocalStorage.AddLink("items", JsonSerializer.Serialize(links));
+        }
+        StateHasChanged();
+    }
+
+
+    private async void DeleteLink(int index)
+    {
+        Console.WriteLine(index);
+        links.RemoveAt(index);
+
+        await LocalStorage.AddLink("items", JsonSerializer.Serialize(links));
+        
+        StateHasChanged();
+    }
+
+}
