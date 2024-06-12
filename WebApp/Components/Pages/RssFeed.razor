@@ -50,28 +50,30 @@
 <div class="grid-articles">
     @if (filteredArticles.Any())
     {
-    foreach (var article in filteredArticles)
-    {
-    <button class="LinkButton" @onclick="() => OpenArticle(article.LinkToArticle)">
-        <div class="grid-articleCard" style="background-color: @article.Color">
-            <div id="image">
-                <img src="@article.Media?.Url" alt="404">
-            </div>
-            <div id="title" class="article-card-text small">
-                <h1>@article.Title</h1>
-            </div>
-            <div id="description" class="article-card-text smaller justify">
-                <p>@article.Description</p>
-            </div>
-            <div id="bottom-row" class="article-card-text small">
-                <div id="author">Author: @article.Author</div>
-                <div id="pub-date">Published: @article.pubDate</div>
-            </div>
-        </div>
-    </button>
-    }
+        foreach (var article in filteredArticles)
+        {
+            <button class="LinkButton" @onclick="() => OpenArticle(article.LinkToArticle)">
+                <div class="grid-articleCard" style="background-color: @article.Color">
+                    <div id="image">
+                        <img src="@article.Media?.Url" alt="404">
+                    </div>
+                    <div id="title" class="article-card-text small">
+                        <h1>@article.Title</h1>
+                    </div>
+                    <div id="description" class="article-card-text smaller justify">
+                        <p>@article.Description</p>
+                    </div>
+                    <div id="bottom-row" class="article-card-text small">
+                        <div id="author">Author: @article.Author</div>
+                        <div id="pub-date">Published: @article.pubDate</div>
+                    </div>
+                </div>
+            </button>
+        }
     }
 </div>
+
+<ArticleModal IsOpen="_isModalOpen" Content="@_articleContent" OnClose="CloseModal" />
 
 @code {
     private bool _isOpen = false;
