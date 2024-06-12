@@ -3,6 +3,7 @@
 @using System.Text.Json
 @using WebApp.Helpers
 @inject LocalStorageService LocalStorage
+@inject NavigationManager Navigation
 
 <PageTitle>Weather</PageTitle>
 
@@ -22,8 +23,8 @@
         var current = i;
         <tr>
             @links[i]
-            <button @onclick="() => {DeleteLink(current); }">Delete</button>
-            <button>Edit</button>
+            <button class="delete-button" @onclick="() => {DeleteLink(current); }">Delete</button>
+            <button class="edit-button" @onclick='() => { Navigation.NavigateTo($"EditRssLink/{current}"); }'>Edit</button>
         </tr>
     }
     </tbody>

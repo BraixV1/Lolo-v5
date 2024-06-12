@@ -1,4 +1,4 @@
-﻿@page "/RssFeed"
+﻿@page "/"
 @rendermode InteractiveServer
 @using System.Text
 @using System.Text.Json
@@ -7,52 +7,71 @@
 
 <PageTitle>RssFeed</PageTitle>
 
-<input type="text" @bind="_searchTerm" @bind:event="oninput" placeholder="Search articles..." />
-
-<button class="" @onclick="ToggleDropdown">
-    Select Categories
-</button>
-@if (_isOpen)
+@if (errors.Count > 0)
 {
-    <div class="dropdown-menu @(_isOpen ? "show" : "")">
-        @if (_categoryFilters.Keys.Count != 0)
+    <div class="error-box-grid">
+        @foreach (var error in errors)
         {
-            foreach (var category in _categoryFilters)
-            {
-                var categorySaved = category.Key;
-                <div class="dropdown-item">
-                    <input type="checkbox" checked="@_categoryFilters[categorySaved]" @onchange="e => OnCategoryChanged(categorySaved, e)" />
-                    <label>@categorySaved</label>
-                </div>
-            }
+            <div class="error-box">
+                @error
+            </div>
         }
     </div>
 }
 
-
+<div class="search-filters">
+    <div id="search-bar">
+        <input type="text" class="search-bar" @bind="_searchTerm" @bind:event="oninput" placeholder="Search articles..."/>
+    </div>
+    <div id="filter-bar">
+        <button class="filter-button" @onclick="ToggleDropdown">
+            Select Categories
+        </button>
+    </div>
+    <div id="dropdown">
+        @if (_isOpen)
+        {
+        <div class="dropdown-menu @(_isOpen ? "show" : "")">
+            @if (_categoryFilters.Keys.Count != 0)
+            {
+            foreach (var category in _categoryFilters)
+            {
+            var categorySaved = category.Key;
+            <div class="dropdown-item">
+                <input type="checkbox" checked="@_categoryFilters[categorySaved]" @onchange="e => OnCategoryChanged(categorySaved, e)"/>
+                <label>@categorySaved</label>
+            </div>
+            }
+            }
+        </div>
+        }
+    </div>
+</div>
 <div class="grid-articles">
     @if (filteredArticles.Any())
     {
-        foreach (var article in filteredArticles)
-        {
-            <button class="LinkButton" @onclick="() => OpenArticle(article.LinkToArticle)">
-                <div class="grid-articleCard" style="background-color: @article.Color">
-                    <div id="image"> <img src="@article.Media?.Url" alt="404"> </div>
-                    <div id="title" class="article-card-text small">
-                        <h1>@article.Title</h1></div>
-                    <div id="description" class="article-card-text smaller justify">
-                        <p>@article.Description</p></div>
-                    <div id="bottom-row" class="article-card-text small">
-                        <div id="author">Author: @article.Author</div>
-                        <div id="pub-date">Published: @article.pubDate</div>
-                    </div>
-                </div>
-            </button>
-        }
+    foreach (var article in filteredArticles)
+    {
+    <button class="LinkButton" @onclick="() => OpenArticle(article.LinkToArticle)">
+        <div class="grid-articleCard" style="background-color: @article.Color">
+            <div id="image">
+                <img src="@article.Media?.Url" alt="404">
+            </div>
+            <div id="title" class="article-card-text small">
+                <h1>@article.Title</h1>
+            </div>
+            <div id="description" class="article-card-text smaller justify">
+                <p>@article.Description</p>
+            </div>
+            <div id="bottom-row" class="article-card-text small">
+                <div id="author">Author: @article.Author</div>
+                <div id="pub-date">Published: @article.pubDate</div>
+            </div>
+        </div>
+    </button>
+    }
     }
 </div>
-
-<ArticleModal IsOpen="_isModalOpen" Content="@_articleContent" OnClose="CloseModal" />
 
 @code {
     private bool _isOpen = false;
@@ -64,6 +83,7 @@
     private ArticlesObj _articlesObj = new ArticlesObj { Articles = new List<Article>() };
     private readonly Dictionary<string, bool> _categoryFilters = new Dictionary<string, bool>();
     private string _articleContent = string.Empty;
+    private List<string> errors = new List<string>();
     
     private IEnumerable<Article> filteredArticles => _articlesObj.Articles
         .Where(article =>
@@ -132,14 +152,21 @@
 
                 var content = await response.Content.ReadAsStringAsync();
                 _articleContent = JsonDocument.Parse(content).RootElement.GetProperty("content").GetString().Replace("\n", "");
-                _isModalOpen = true;
-                StateHasChanged();
+                if (_articleContent == string.Empty)
+                {
+                    _articleContent = $"Content of the article was empty \n To read the article please visit: {link}";
+                }
             }
         }
         catch (Exception ex)
         {
-            // Handle exception
+            _articleContent = $"Content of the article could not be loaded \n To read the article please visit: {link}";
             Console.WriteLine($"Error fetching article content: {ex.Message}");
+        }
+        finally
+        {
+            _isModalOpen = true;
+            StateHasChanged();
         }
     }
 
@@ -158,14 +185,13 @@
         }
     }
     
-    private static async Task<ArticlesObj> GetXmlData(List<string> items)
+    private async Task<ArticlesObj> GetXmlData(List<string> items)
     {
         HttpClient client = new HttpClient();
         var result = new ArticlesObj { Articles = new List<Article>() };
-
-        try
+        foreach (var url in items)
         {
-            foreach (var url in items)
+            try
             {
                 string xmlData = await client.GetStringAsync(url);
                 var articlesObj = XMLDeserializer.DeserializeXmlData<ArticlesObj>(xmlData);
@@ -175,14 +201,14 @@
                     result.Articles = result.Articles.Concat(articlesObj.Articles).ToList();
                 }
             }
-            result.Articles.Sort((article, article1) => article.pubDate.CompareTo(article1.pubDate));
-            result.Articles.Reverse();
-            return result;
+            catch (Exception ex)
+            {
+                errors.Add($"Fetching data from {url} failed");
+                
+            }
         }
-        catch (Exception ex)
-        {
-            // Log or handle the exception as needed
-            throw new Exception("Error fetching XML data", ex);
-        }
+        result.Articles.Sort((article, article1) => article.pubDate.CompareTo(article1.pubDate));
+        result.Articles.Reverse();
+        return result;
     }
 }
