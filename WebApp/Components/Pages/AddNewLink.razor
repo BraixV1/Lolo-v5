@@ -5,30 +5,25 @@
 @inject LocalStorageService LocalStorage
 @inject NavigationManager Navigation
 
-<h3>Add new rss feed</h3>
+<h3>Add new RSS feed</h3>
 
+<CreateEditForm Link="@link" OnSubmit="Submit" SubmitButtonText="Add new" />
 
-<form method="post" @onsubmit="Submit">
-    <label class="link-label">Link:
-        <InputText class="link-input" @bind-Value="link"></InputText>
-    </label>
-    <button class="save-button" type="submit">Add new</button>
-</form>
 <br/>
 <NavLink href="FeedLinks">
     Back to the links
 </NavLink>
 
 @code {
-    public string link;
+    private string link;
 
-    private async void Submit()
+    private async Task Submit(string newLink)
     {
         var storeItems = await LocalStorage.GetItem("items");
 
-        var links = JsonSerializer.Deserialize<List<string>>(storeItems);
-        
-        links.Add(link);
+        var links = JsonSerializer.Deserialize<List<string>>(storeItems) ?? new List<string>();
+
+        links.Add(newLink);
 
         await LocalStorage.AddLink("items", JsonSerializer.Serialize(links));
         Navigation.NavigateTo("FeedLinks");

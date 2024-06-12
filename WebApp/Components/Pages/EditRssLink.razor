@@ -6,13 +6,7 @@
 @inject NavigationManager Navigation
 <h3>Edit Rss feed link page</h3>
 
-<form method="post" @onsubmit="Submit">
-    <label class="link-label">Link:
-        <InputText class="link-input" @bind-Value="link"></InputText>
-    </label>
-    <button class="save-button" type="submit">Save Changes</button>
-</form>
-<br/>
+<CreateEditForm Link="@link" OnSubmit="Submit" SubmitButtonText="Save changes"></CreateEditForm>
 <NavLink href="FeedLinks">
     Back to the links
 </NavLink>
@@ -26,10 +20,10 @@
 
     private List<string> storedLinks;
     
-    private async void Submit()
+    private async void Submit(string newLink)
     {
 
-        storedLinks[index] = link;
+        storedLinks[index] = newLink;
 
         await LocalStorage.AddLink("items", JsonSerializer.Serialize(storedLinks));
         Navigation.NavigateTo("FeedLinks");

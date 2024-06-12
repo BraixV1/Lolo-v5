@@ -1,0 +1,23 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@code {
+    [Parameter] public string Link { get; set; }
+    [Parameter] public string SubmitButtonText { get; set; }
+    [Parameter] public EventCallback<string> OnSubmit { get; set; }
+
+    private async Task HandleSubmit()
+    {
+        if (OnSubmit.HasDelegate)
+        {
+            await OnSubmit.InvokeAsync(Link);
+        }
+    }
+}
+
+<EditForm Model="@this" OnValidSubmit="HandleSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <label class="link-label">Link:
+        <InputText class="link-input" @bind-Value="Link"></InputText>
+    </label>
+    <button class="save-button" type="submit">@SubmitButtonText</button>
+</EditForm>
